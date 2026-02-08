@@ -1,0 +1,17 @@
+{
+  "name": "calc",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "ts-script": "ts-node ./src/index.ts"
+  },
+  "dependencies": {
+    "tsconfig-paths": "^4",
+    "ts-node": "^10",
+    "readline-sync": "^1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5"
+  }
+}

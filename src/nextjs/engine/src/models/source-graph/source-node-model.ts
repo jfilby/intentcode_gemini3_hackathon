@@ -1,0 +1,505 @@
+import { PrismaClient } from '@prisma/client'
+import { CustomError } from '@/serene-core-server/types/errors'
+
+export class SourceNodeModel {
+
+  // Consts
+  clName = 'SourceNodeModel'
+
+  // Code
+  async create(
+          prisma: PrismaClient,
+          parentId: string | null,
+          instanceId: string,
+          status: string,
+          type: string,
+          name: string,
+          content: string | null,
+          contentHash: string | null,
+          jsonContent: any,
+          jsonContentHash: string | null,
+          contentUpdated: Date | null) {
+
+    // Debug
+    const fnName = `${this.clName}.create()`
+
+    // Validate
+    if (name != null &&
+        name.length === 0) {
+
+      throw new CustomError(`${fnName}: name.length === 0`)
+    }
+
+    // Create record
+    try {
+      return await prisma.sourceNode.create({
+        data: {
+          parentId: parentId,
+          instanceId: instanceId,
+          status: status,
+          type: type,
+          name: name,
+          content: content,
+          contentHash: contentHash,
+          jsonContent: jsonContent,
+          jsonContentHash: jsonContentHash,
+          contentUpdated: contentUpdated
+        }
+      })
+    } catch(error) {
+      console.error(`${fnName}: error: ${error}`)
+      throw error
+    }
+  }
+
+  async deleteById(
+          prisma: PrismaClient,
+          id: string) {
+
+    // Debug
+    const fnName = `${this.clName}.deleteById()`
+
+    // Delete
+    try {
+      return await prisma.sourceNode.delete({
+        where: {
+          id: id
+        }
+      })
+    } catch(error: any) {
+      if (!(error instanceof error.NotFound)) {
+        console.error(`${fnName}: error: ${error}`)
+        throw 'Prisma error'
+      }
+    }
+  }
+
+  async filter(
+          prisma: PrismaClient,
+          parentId: string | null | undefined = undefined,
+          instanceId: string | undefined = undefined,
+          type: string | undefined = undefined,
+          name: string | undefined = undefined,
+          contentHash: string | null | undefined = undefined,
+          jsonContentHash: string | null | undefined = undefined,
+          orderByUniqueKey: boolean = false) {
+
+    // Debug
+    const fnName = `${this.clName}.filter()`
+
+    // Query
+    try {
+      return await prisma.sourceNode.findMany({
+        where: {
+          parentId: parentId,
+          instanceId: instanceId,
+          type: type,
+          name: name,
+          contentHash: contentHash,
+          jsonContentHash: jsonContentHash
+        },
+        orderBy: orderByUniqueKey ? [
+          {
+            parentId: 'asc'
+          },
+          {
+            instanceId: 'asc'
+          },
+          {
+            type: 'asc'
+          },
+          {
+            name: 'asc'
+          }
+        ] : undefined
+      })
+    } catch(error: any) {
+      console.error(`${fnName}: error: ${error}`)
+      throw 'Prisma error'
+    }
+  }
+
+  async filterWithChildNodes(
+          prisma: PrismaClient,
+          instanceId: string | undefined = undefined,
+          type: string | undefined = undefined,
+          childTypes: string[] | undefined) {
+
+    // Debug
+    const fnName = `${this.clName}.filterWithChildNodes()`
+
+    // Query
+    try {
+      return await prisma.sourceNode.findMany({
+        include: {
+          children: {
+            where: {
+              type: {
+                in: childTypes
+              }
+            }
+          }
+        },
+        where: {
+          instanceId: instanceId,
+          type: type,
+        }
+      })
+    } catch(error: any) {
+      console.error(`${fnName}: error: ${error}`)
+      throw 'Prisma error'
+    }
+  }
+
+  async getById(
+          prisma: PrismaClient,
+          id: string) {
+
+    // Debug
+    const fnName = `${this.clName}.getById()`
+
+    // Query
+    var sourceNode: any = null
+
+    try {
+      sourceNode = await prisma.sourceNode.findUnique({
+        where: {
+          id: id
+        }
+      })
+    } catch(error: any) {
+      if (!(error instanceof error.NotFound)) {
+        console.error(`${fnName}: error: ${error}`)
+        throw 'Prisma error'
+      }
+    }
+
+    // Return
+    return sourceNode
+  }
+
+  async getByUniqueKey(
+          prisma: PrismaClient,
+          parentId: string | null,
+          instanceId: string,
+          type: string,
+          name: string) {
+
+    // Debug
+    const fnName = `${this.clName}.getByUniqueKey()`
+
+    // console.log(`${fnName}: parentId: ${parentId} instanceId: ${instanceId} ` +
+    //             `type: ${type} name: ${name}`)
+
+    // Validate
+    if (parentId === undefined) {
+      console.error(`${fnName}: parentId === undefined`)
+      throw 'Validation error'
+    }
+
+    if (instanceId == null) {
+      console.error(`${fnName}: instanceId == null`)
+      throw 'Validation error'
+    }
+
+    if (type == null) {
+      console.error(`${fnName}: type == null`)
+      throw 'Validation error'
+    }
+
+    if (name == null) {
+      console.error(`${fnName}: name == null`)
+      throw 'Validation error'
+    }
+
+    // Query
+    var sourceNode: any = null
+
+    try {
+      sourceNode = await prisma.sourceNode.findFirst({
+        where: {
+          parentId: parentId,
+          instanceId: instanceId,
+          type: type,
+          name: name
+        }
+      })
+    } catch(error: any) {
+      if (!(error instanceof error.NotFound)) {
+        console.error(`${fnName}: error: ${error}`)
+        throw 'Prisma error'
+      }
+    }
+
+    // Return
+    return sourceNode
+  }
+
+  async getJsonContentByParentIdAndType(
+          prisma: PrismaClient,
+          parentId: string,
+          type: string,
+          includeParent: boolean = false,
+          orderByUniqueKey: boolean = false) {
+
+    // Debug
+    const fnName = `${this.clName}.getJsonContentByParentIdAndType()`
+
+    // Query
+    try {
+      return await prisma.sourceNode.findMany({
+        include: {
+          parent: includeParent
+        },
+        where: {
+          parentId: parentId,
+          type: type
+        },
+        // Order by the unique key fields (excluding those in the where clause)
+        orderBy: orderByUniqueKey ? [
+          {
+            parentId: 'asc'
+          },
+          {
+            name: 'asc'
+          }
+        ] : undefined
+      })
+    } catch(error: any) {
+      console.error(`${fnName}: error: ${error}`)
+      throw 'Prisma error'
+    }
+  }
+
+  async getOldest(
+    prisma: PrismaClient,
+    parentId: string,
+    type: string,
+    latestRecordsIgnored: number) {
+
+    // Debug
+    const fnName = `${this.clName}.getOldest()`
+
+    // Query
+    try {
+      return await prisma.sourceNode.findMany({
+        skip: latestRecordsIgnored,
+        where: {
+          parentId: parentId,
+          type: type
+        },
+        orderBy: [
+          {
+            created: 'desc'
+          }
+        ]
+      })
+    } catch(error: any) {
+      console.error(`${fnName}: error: ${error}`)
+      throw 'Prisma error'
+    }
+  }
+
+  async setJsonContent(
+          prisma: PrismaClient,
+          id: string,
+          jsonContent: any | undefined,
+          jsonContentHash: string | null | undefined) {
+
+    // Debug
+    const fnName = `${this.clName}.setJsonContent()`
+
+    // Update record
+    try {
+      return await prisma.sourceNode.update({
+        data: {
+          jsonContent: jsonContent,
+          jsonContentHash: jsonContentHash,
+          contentUpdated: new Date()
+        },
+        where: {
+          id: id
+        }
+      })
+    } catch(error) {
+      console.error(`${fnName}: error: ${error}`)
+      throw 'Prisma error'
+    }
+  }
+
+  async update(
+          prisma: PrismaClient,
+          id: string,
+          parentId: string | null | undefined,
+          instanceId: string | undefined,
+          status: string | undefined,
+          type: string | undefined,
+          name: string | undefined,
+          content: string | null | undefined,
+          contentHash: string | null | undefined,
+          jsonContent: any | undefined,
+          jsonContentHash: string | null | undefined,
+          contentUpdated: Date | null | undefined) {
+
+    // Debug
+    const fnName = `${this.clName}.update()`
+
+    // Validate
+    if (name != null &&
+        name.length === 0) {
+
+      throw new CustomError(`${fnName}: name.length === 0`)
+    }
+
+    // Update record
+    try {
+      return await prisma.sourceNode.update({
+        data: {
+          parentId: parentId,
+          instanceId: instanceId,
+          status: status,
+          type: type,
+          name: name,
+          content: content,
+          contentHash: contentHash,
+          jsonContent: jsonContent,
+          jsonContentHash: jsonContentHash,
+          contentUpdated: contentUpdated
+        },
+        where: {
+          id: id
+        }
+      })
+    } catch(error) {
+      console.error(`${fnName}: error: ${error}`)
+      throw 'Prisma error'
+    }
+  }
+
+  async upsert(
+          prisma: PrismaClient,
+          id: string | undefined,
+          parentId: string | null | undefined,
+          instanceId: string | undefined,
+          status: string | undefined,
+          type: string | undefined,
+          name: string | undefined,
+          content: string | null | undefined,
+          contentHash: string | null | undefined,
+          jsonContent: any | undefined,
+          jsonContentHash: string | null | undefined,
+          contentUpdated: Date | null | undefined) {
+
+    // Debug
+    const fnName = `${this.clName}.upsert()`
+
+    // console.log(`${fnName}: starting with id: ` + JSON.stringify(id))
+
+    // If id isn't specified, but the unique keys are, try to get the record
+    if (id == null &&
+        parentId !== undefined &&
+        instanceId !== undefined &&
+        type != null &&
+        name != null) {
+
+      const sourceNode = await
+              this.getByUniqueKey(
+                prisma,
+                parentId,
+                instanceId,
+                type,
+                name)
+
+      if (sourceNode != null) {
+        id = sourceNode.id
+      }
+    }
+
+    // Upsert
+    if (id == null) {
+
+      // Validate for create (mainly for type validation of the create call)
+      if (parentId === undefined) {
+        console.error(`${fnName}: id is null and parentId is undefined`)
+        throw 'Prisma error'
+      }
+
+      if (instanceId === undefined) {
+        console.error(`${fnName}: id is null and instanceId is undefined`)
+        throw 'Prisma error'
+      }
+
+      if (status == null) {
+        console.error(`${fnName}: id is null and status is null`)
+        throw 'Prisma error'
+      }
+
+      if (type == null) {
+        console.error(`${fnName}: id is null and type is null`)
+        throw 'Prisma error'
+      }
+
+      if (name == null) {
+        console.error(`${fnName}: id is null and name is null`)
+        throw 'Prisma error'
+      }
+
+      if (content === undefined) {
+        console.error(`${fnName}: id is null and content is undefined`)
+        throw 'Prisma error'
+      }
+
+      if (contentHash === undefined) {
+        console.error(`${fnName}: id is null and contentHash is undefined`)
+        throw 'Prisma error'
+      }
+
+      if (jsonContent === undefined) {
+        console.error(`${fnName}: id is null and jsonContent is undefined`)
+        throw 'Prisma error'
+      }
+
+      if (jsonContentHash === undefined) {
+        console.error(`${fnName}: id is null and jsonContentHash is undefined`)
+        throw 'Prisma error'
+      }
+
+      if (contentUpdated === undefined) {
+        console.error(`${fnName}: id is null and contentUpdated is undefined`)
+        throw 'Prisma error'
+      }
+
+      // Create
+      return await
+               this.create(
+                 prisma,
+                 parentId,
+                 instanceId,
+                 status,
+                 type,
+                 name,
+                 content,
+                 contentHash,
+                 jsonContent,
+                 jsonContentHash,
+                 contentUpdated)
+    } else {
+
+      // Update
+      return await
+               this.update(
+                 prisma,
+                 id,
+                 parentId,
+                 instanceId,
+                 status,
+                 type,
+                 name,
+                 content,
+                 contentHash,
+                 jsonContent,
+                 jsonContentHash,
+                 contentUpdated)
+    }
+  }
+}

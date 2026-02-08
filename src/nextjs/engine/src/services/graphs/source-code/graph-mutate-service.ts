@@ -1,0 +1,213 @@
+import { blake3 } from '@noble/hashes/blake3'
+import { PrismaClient, SourceNode } from '@prisma/client'
+import { CustomError } from '@/serene-core-server/types/errors'
+import { BaseDataTypes } from '@/shared/types/base-data-types'
+import { SourceNodeGenerationData, SourceNodeNames, SourceNodeTypes } from '@/types/source-graph-types'
+import { SourceNodeGenerationModel } from '@/models/source-graph/source-node-generation-model'
+import { SourceNodeModel } from '@/models/source-graph/source-node-model'
+import { SourceNodeGenerationService } from '../general/source-node-generation-service'
+
+// Models
+const sourceNodeGenerationModel = new SourceNodeGenerationModel()
+const sourceNodeModel = new SourceNodeModel()
+
+// Services
+const sourceNodeGenerationService = new SourceNodeGenerationService()
+
+// Code
+export class SourceCodeGraphMutateService {
+
+  // Consts
+  clName = 'SourceCodeGraphMutateService'
+
+  // Code
+  async getOrCreateSourceCodeProject(
+          prisma: PrismaClient,
+          buildNode: SourceNode,
+          localPath: string) {
+
+    // Debug
+    const fnName = `${this.clName}.getOrCreateSourceCodeProject()`
+
+    // Validate
+    if (buildNode == null) {
+      throw new CustomError(`${fnName}: buildNode == null`)
+    }
+
+    if (buildNode.type !== SourceNodeTypes.build) {
+      throw new CustomError(`${fnName}: invalid type: ${buildNode.type}`)
+    }
+
+    // Try to get the node
+    var sourceCodeProject = await
+          sourceNodeModel.getByUniqueKey(
+            prisma,
+            buildNode.id,  // parentId
+            buildNode.instanceId,
+            SourceNodeTypes.projectSourceCode,
+            SourceNodeNames.projectSourceCode)
+
+    if (sourceCodeProject != null) {
+      return sourceCodeProject
+    }
+
+    // Define jsonContent
+    const jsonContent = {
+      path: localPath
+    }
+
+    // Get jsonContentHash
+    var jsonContentHash: string | null = null
+
+    if (jsonContent != null) {
+
+      // Blake3 hash
+      jsonContentHash = blake3(JSON.stringify(jsonContent)).toString()
+    }
+
+    // Create the node
+    sourceCodeProject = await
+      sourceNodeModel.create(
+        prisma,
+        buildNode.id,  // parentId
+        buildNode.instanceId,
+        BaseDataTypes.activeStatus,
+        SourceNodeTypes.projectSourceCode,
+        SourceNodeNames.projectSourceCode,
+        null,  // content
+        null,  // contentHash
+        jsonContent,
+        jsonContentHash,
+        null)  // contentUpdated
+
+    // Return
+    return sourceCodeProject
+  }
+
+  async getOrCreateSourceCodeDir(
+          prisma: PrismaClient,
+          instanceId: string,
+          parentNode: SourceNode,
+          name: string) {
+
+    // Debug
+    const fnName = `${this.clName}.getOrCreateSourceCodeDir()`
+
+    // Validate
+    if (parentNode == null) {
+      throw new CustomError(`${fnName}: parentNode == null`)
+    }
+
+    if (![SourceNodeTypes.projectSourceCode,
+          SourceNodeTypes.sourceCodeDir].includes(
+            parentNode.type as SourceNodeTypes)) {
+
+      throw new CustomError(`${fnName}: invalid type: ${parentNode.type}`)
+    }
+
+    // Try to get the node
+    var sourceCodeDir = await
+          sourceNodeModel.getByUniqueKey(
+            prisma,
+            parentNode.id,
+            instanceId,
+            SourceNodeTypes.sourceCodeDir,
+            name)
+
+    if (sourceCodeDir != null) {
+      return sourceCodeDir
+    }
+
+    // Create the node
+    sourceCodeDir = await
+      sourceNodeModel.create(
+        prisma,
+        parentNode.id,  // parentId
+        instanceId,
+        BaseDataTypes.activeStatus,
+        SourceNodeTypes.sourceCodeDir,
+        name,
+        null,           // content
+        null,           // contentHash
+        null,           // jsonContent
+        null,           // jsonContentHash
+        null)           // contentUpdated
+
+    // Return
+    return sourceCodeDir
+  }
+
+  async upsertSourceCodeFile(
+          prisma: PrismaClient,
+          instanceId: string,
+          parentNode: SourceNode,
+          name: string,
+          content: string | null,
+          sourceNodeGenerationData: SourceNodeGenerationData) {
+
+    // Debug
+    const fnName = `${this.clName}.upsertSourceCodeFile()`
+
+    // Validate
+    if (parentNode == null) {
+      throw new CustomError(`${fnName}: parentNode == null`)
+    }
+
+    if (![SourceNodeTypes.projectSourceCode,
+          SourceNodeTypes.sourceCodeDir].includes(
+            parentNode.type as SourceNodeTypes)) {
+
+      throw new CustomError(`${fnName}: invalid type: ${parentNode.type}`)
+    }
+
+    // Get contentHash
+    var contentHash: string | null = null
+
+    if (content != null) {
+      contentHash = blake3(JSON.stringify(content)).toString()
+    }
+
+    // Upsert the node
+    const sourceCodeFile = await
+            sourceNodeModel.upsert(
+              prisma,
+              undefined,      // id
+              parentNode.id,  // parentId
+              instanceId,
+              BaseDataTypes.activeStatus,
+              SourceNodeTypes.sourceCodeFile,
+              name,
+              content,
+              contentHash,
+              null,           // jsonContent
+              null,           // jsonContentHash
+              new Date())
+
+    // Get promptHash
+    const promptHash =
+            blake3(JSON.stringify(sourceNodeGenerationData.prompt)).toString()
+
+    // Upsert SourceNodeGeneration
+    const sourceNodeGeneration = await
+            sourceNodeGenerationModel.upsert(
+              prisma,
+              undefined,          // id
+              sourceCodeFile.id,  // sourceNodeId
+              sourceNodeGenerationData.techId,
+              sourceNodeGenerationData.temperature ?? null,
+              sourceNodeGenerationData.prompt,
+              promptHash,
+              content,
+              contentHash,
+              null,               // jsonContent,
+              null)               // jsonContentHash
+
+    // Delete old SourceNodeGenerations
+    await sourceNodeGenerationService.deleteOld(
+            prisma,
+            sourceCodeFile.id)  // sourceNodeId
+
+    // Return
+    return sourceCodeFile
+  }
+}

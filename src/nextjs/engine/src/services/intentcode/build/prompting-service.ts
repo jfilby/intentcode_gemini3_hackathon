@@ -1,0 +1,116 @@
+import fs from 'fs'
+import { SourceNode } from '@prisma/client'
+import { WalkDirService } from '@/serene-core-server/services/files/walk-dir-service'
+import { BuildData } from '@/types/build-types'
+import { ProjectDetails } from '@/types/server-only-types'
+
+// Services
+const walkDirService = new WalkDirService()
+
+// Class
+export class IntentCodePromptingService {
+
+  // Consts
+  clName = 'IntentCodePromptingService'
+
+  // Code
+  async addProjectFilesPrompting(
+          projectNo: number,
+          projectDetails: ProjectDetails) {
+
+    // Add existing IntentCode files
+    const intentCodeFiles = await
+            this.getIntentCodeFiles(projectDetails.projectIntentCodeNode)
+
+    if (intentCodeFiles.size == 0) {
+      return null
+    }
+
+    // Add prompting
+    var prompting =
+      `### Project no: ${projectNo}\n` +
+      `\n`
+
+    // Add each file
+    for (const [intentCodeFilename, content] of
+          Object.entries(intentCodeFiles)) {
+
+      prompting +=
+        `### ${intentCodeFilename}\n` +
+        `\n` +
+        '```md\n' +
+        `${content}\n` +
+        '```' +
+        `\n`
+    }
+
+    // Return
+    return prompting
+  }
+
+  async getAllPrompting(buildData: BuildData) {
+
+    // Vars
+    var prompting =
+          `## IntentCode files\n` +
+          `\n` +
+          `These are the existing IntentCode files.\n` +
+          `\n`
+
+    // Iterate projects
+    for (const [projectNo, projectDetails] of
+         Object.entries(buildData.projects)) {
+
+      // Add each project's files
+      const projectPrompting = await
+              this.addProjectFilesPrompting(
+                projectNo as any as number,
+                projectDetails)
+
+      if (projectPrompting != null) {
+        prompting += projectPrompting
+      }
+    }
+
+    // Return
+    return prompting
+  }
+
+  async getIntentCodeFiles(projectIntentCodeNode: SourceNode) {
+
+    // Get IntentCode path
+    const intentCodePath = (projectIntentCodeNode.jsonContent as any).path
+
+    // Walk dir
+    var mdFilesList: string[] = []
+
+    await walkDirService.walkDir(
+            intentCodePath,
+            mdFilesList,
+            {
+              recursive: true,
+              fileExts: ['.md']
+            })
+
+    // Read files
+    var intentCodeFiles: any = {}
+
+    for (const mdFilename of mdFilesList) {
+
+      // Get relative path
+      const relativePath = mdFilename.slice(intentCodePath.length)
+
+      // Read file
+      const content = await
+              fs.readFileSync(
+                mdFilename,
+                { encoding: 'utf8', flag: 'r' })
+
+      // Add to intentCodeFiles
+      intentCodeFiles[relativePath] = content
+    }
+
+    // Return
+    return intentCodeFiles
+  }
+}
